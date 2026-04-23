@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign Meet MVP</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; }
+      video, canvas { width: 420px; border-radius: 8px; background: #111; }
+      .row { display: flex; gap: 20px; align-items: flex-start; }
+      .badge { font-size: 1.1rem; font-weight: 700; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Sign Meet - MVP</h1>
+    <p>Captura webcam y envía 1 frame/seg al backend para inferencia.</p>
+
+    <div class="row">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas" width="420" height="315" hidden></canvas>
+    </div>
+
+    <p class="badge" id="prediction">Esperando predicción...</p>
+
+    <script>
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const output = document.getElementById('prediction');
+
+      async function start() {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        video.srcObject = stream;
+
+        const ws = new WebSocket('ws://localhost:8000/ws/infer');
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'prediction') {
+            const r = data.result;
+            output.textContent = `Seña: ${r.label} | Confianza: ${r.confidence}` +
+              (r.motion_score !== undefined ? ` | Movimiento: ${r.motion_score}` : '');
+          } else if (data.error) {
+            output.textContent = `Error: ${data.error}`;
+          }
+        };
+
+        setInterval(() => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const frame = canvas.toDataURL('image/jpeg', 0.7);
+          ws.send(JSON.stringify({ frame }));
+        }, 1000);
+      }
+
+      start().catch((err) => {
+        output.textContent = `No se pudo iniciar: ${err.message}`;
+      });
+    </script>
+  </body>
+</html>
