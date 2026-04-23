@@ -9,6 +9,8 @@
       video, canvas { width: 420px; border-radius: 8px; background: #111; }
       .row { display: flex; gap: 20px; align-items: flex-start; }
       .badge { font-size: 1.1rem; font-weight: 700; margin-top: 12px; }
+      .status { margin-top: 15px; font-size: 0.95rem; color: #333; }
+      button { margin-top: 12px; padding: 10px 16px; font-size: 0.95rem; cursor: pointer; }
     </style>
   </head>
   <body>
@@ -21,24 +23,60 @@
     </div>
 
     <p class="badge" id="prediction">Esperando predicción...</p>
+    <p class="badge" id="transcript">Frase: </p>
+    <p class="status" id="server-status">Backend: desconectado</p>
+    <p class="status" id="connection-status">WebSocket: cerrado</p>
+    <button id="clearPhrase">Limpiar frase</button>
 
     <script>
       const video = document.getElementById('video');
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       const output = document.getElementById('prediction');
+      const transcript = document.getElementById('transcript');
+      const serverStatus = document.getElementById('server-status');
+      const connectionStatus = document.getElementById('connection-status');
+      const clearButton = document.getElementById('clearPhrase');
+
+      let currentPhrase = [];
+      let lastLabel = '';
 
       async function start() {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = stream;
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          video.srcObject = stream;
+        } catch (err) {
+          output.textContent = `No se pudo iniciar: ${err.message}`;
+          return;
+        }
 
         const ws = new WebSocket('ws://localhost:8000/ws/infer');
+
+        ws.onopen = () => {
+          connectionStatus.textContent = 'WebSocket: conectado';
+        };
+
+        ws.onclose = () => {
+          connectionStatus.textContent = 'WebSocket: desconectado';
+        };
+
+        ws.onerror = () => {
+          connectionStatus.textContent = 'WebSocket: error';
+        };
+
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.type === 'prediction') {
             const r = data.result;
             output.textContent = `Seña: ${r.label} | Confianza: ${r.confidence}` +
-              (r.motion_score !== undefined ? ` | Movimiento: ${r.motion_score}` : '');
+              (r.motion_score !== undefined ? ` | Movimiento: ${r.motion_score}` : '') +
+              (r.mode ? ` | Modo: ${r.mode}` : '');
+
+            if (r.label && r.label !== lastLabel && r.label !== 'SIN_SENA') {
+              currentPhrase.push(r.label);
+              transcript.textContent = `Frase: ${currentPhrase.join(' ')}`;
+            }
+            lastLabel = r.label;
           } else if (data.error) {
             output.textContent = `Error: ${data.error}`;
           }
@@ -50,11 +88,22 @@
           const frame = canvas.toDataURL('image/jpeg', 0.7);
           ws.send(JSON.stringify({ frame }));
         }, 1000);
+
+        try {
+          const status = await fetch('http://localhost:8000/status');
+          const json = await status.json();
+          serverStatus.textContent = `Backend: ${json.model_loaded ? 'modelo listo' : 'modo fallback'} (${json.mode})`;
+        } catch {
+          serverStatus.textContent = 'Backend: no disponible';
+        }
       }
 
-      start().catch((err) => {
-        output.textContent = `No se pudo iniciar: ${err.message}`;
+      clearButton.addEventListener('click', () => {
+        currentPhrase = [];
+        transcript.textContent = 'Frase: ';
       });
+
+      start();
     </script>
   </body>
 </html>

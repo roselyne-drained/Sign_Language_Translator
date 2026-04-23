@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import os
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -20,12 +22,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-recognizer = SignRecognizer()
+model_path = os.environ.get("ASL_MODEL_PATH")
+if not model_path:
+    default_model = Path(__file__).resolve().parent / "models" / "asl.onnx"
+    model_path = str(default_model) if default_model.exists() else None
+
+recognizer = SignRecognizer(model_path=model_path)
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "sign-meet-backend"}
+
+
+@app.get("/status")
+def status() -> dict[str, Any]:
+    return {
+        "status": "ok",
+        "model_loaded": recognizer.model_loaded,
+        "model_path": model_path or "",
+        "mode": "backend",
+    }
 
 
 def decode_base64_image(data_url: str) -> np.ndarray:
