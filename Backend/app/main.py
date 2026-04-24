@@ -7,7 +7,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .recognizer import SignRecognizer
@@ -47,7 +47,27 @@ def status() -> dict[str, Any]:
         "model_loaded": recognizer.model_loaded,
         "model_path": model_path or "",
         "mode": "backend",
+        "message": (
+            "Modelo ASL cargado y listo para inferencia."
+            if recognizer.model_loaded
+            else "Sin modelo ASL. Coloca asl.onnx y labels.txt en Backend/app/models y reinicia el servidor."
+        ),
     }
+
+
+@app.post("/infer")
+async def infer(payload: dict[str, Any]) -> dict[str, Any]:
+    frame_data = payload.get("frame")
+    if not frame_data:
+        raise HTTPException(status_code=400, detail="Payload inválido: se requiere el campo 'frame'.")
+
+    try:
+        frame = decode_base64_image(frame_data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    prediction = recognizer.predict(frame)
+    return {"type": "prediction", "result": prediction}
 
 
 def decode_base64_image(data_url: str) -> np.ndarray:

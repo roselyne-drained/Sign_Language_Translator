@@ -5,72 +5,381 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sign Meet MVP</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 24px; }
-      video, canvas { width: 420px; border-radius: 8px; background: #111; }
-      .row { display: flex; gap: 20px; align-items: flex-start; }
-      .badge { font-size: 1.1rem; font-weight: 700; margin-top: 12px; }
+      :root {
+        color-scheme: light;
+        --bg: #f7fafc;
+        --card: #ffffff;
+        --accent: #3b82f6;
+        --text: #111827;
+        --muted: #4b5563;
+        --danger: #dc2626;
+        --success: #16a34a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, Arial, sans-serif;
+        background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 2.4vw, 2.8rem);
+      }
+
+      p.lead {
+        margin: 0.5rem 0 0;
+        color: var(--muted);
+        max-width: 680px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 20px;
+      }
+
+      .grid-2 {
+        grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 24px;
+        padding: 22px;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+      }
+
+      .status-pill {
+        display: inline-flex;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.65rem 1rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--accent);
+        font-weight: 700;
+        margin-bottom: 16px;
+      }
+
+      .grid-video {
+        display: grid;
+        gap: 16px;
+      }
+
+      video {
+        width: 100%;
+        max-width: 760px;
+        border-radius: 18px;
+        background: #000;
+        aspect-ratio: 4 / 3;
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 0.9rem 1.4rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s ease, background-color 0.15s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button.primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      button.secondary {
+        background: #e5e7eb;
+        color: var(--text);
+      }
+
+      .output-row {
+        display: grid;
+        gap: 12px;
+      }
+
+      .output-box {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 18px;
+      }
+
+      .output-title {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+
+      .output-value {
+        margin: 0;
+        font-size: 1.25rem;
+        line-height: 1.5;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .history-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .history-item {
+        background: #eef2ff;
+        color: #1d4ed8;
+        border-radius: 999px;
+        padding: 0.55rem 0.9rem;
+        font-size: 0.9rem;
+      }
+
+      @media (min-width: 960px) {
+        .grid-2 {
+          grid-template-columns: 1.4fr 0.7fr;
+        }
+      }
     </style>
   </head>
   <body>
-    <h1>Sign Meet - MVP</h1>
-    <p>Captura webcam y envía 1 frame/seg al backend para inferencia.</p>
+    <main class="page">
+      <header>
+        <div>
+          <h1>Sign Meet - MVP mejorado</h1>
+          <p class="lead">Captura la webcam, envía un frame al backend y muestra la predicción en tiempo real. Si hay un modelo ASL disponible, también analiza signos reales.</p>
+        </div>
+      </header>
 
-    <div class="row">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="canvas" width="420" height="315" hidden></canvas>
-    </div>
+      <div class="grid grid-2">
+        <section class="card">
+          <div class="status-pill" id="status-pill">Iniciando...</div>
 
-    <p class="badge" id="backend-status">Cargando estado del backend...</p>
-    <p class="badge" id="prediction">Esperando predicción...</p>
+          <div class="grid-video">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas" width="420" height="315" hidden></canvas>
+          </div>
+
+          <div class="controls">
+            <button class="primary" id="start-button">Iniciar cámara</button>
+            <button class="secondary" id="stop-button" disabled>Detener cámara</button>
+          </div>
+
+          <p class="hint">Para evitar bloqueos, abre esta página desde un servidor local. Usa <code>Frontend\run_frontend.ps1</code> o <code>python -m http.server 3000 --directory Frontend</code>.</p>
+        </section>
+
+        <aside class="card">
+          <div class="output-row">
+            <div class="output-box">
+              <p class="output-title">Estado del backend</p>
+              <p class="output-value" id="backend-status">Cargando estado...</p>
+            </div>
+
+            <div class="output-box">
+              <p class="output-title">Predicción actual</p>
+              <p class="output-value" id="prediction">Esperando señal...</p>
+            </div>
+
+            <div class="output-box">
+              <p class="output-title">Traducción</p>
+              <p class="output-value" id="translation">No disponible todavía.</p>
+            </div>
+
+            <div class="output-box">
+              <p class="output-title">Últimas etiquetas</p>
+              <ul class="history-list" id="history-list"></ul>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
 
     <script>
+      const BACKEND_URL = 'http://127.0.0.1:8000';
+      const WS_URL = 'ws://127.0.0.1:8000/ws/infer';
       const video = document.getElementById('video');
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
-      const output = document.getElementById('prediction');
-      const statusOutput = document.getElementById('backend-status');
+      const statusPill = document.getElementById('status-pill');
+      const backendStatus = document.getElementById('backend-status');
+      const predictionOutput = document.getElementById('prediction');
+      const translationOutput = document.getElementById('translation');
+      const historyList = document.getElementById('history-list');
+      const startButton = document.getElementById('start-button');
+      const stopButton = document.getElementById('stop-button');
 
-      async function loadBackendStatus() {
-        try {
-          const response = await fetch('http://localhost:8000/status');
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-          const status = await response.json();
-          statusOutput.textContent = `Backend: ${status.status} | Modelo cargado: ${status.model_loaded} | Ruta: ${status.model_path || 'no definido'}`;
-        } catch (err) {
-          statusOutput.textContent = `No se pudo obtener estado del backend: ${err.message}`;
+      const translationMap = {
+        HELLO: 'Hola',
+        THANK_YOU: 'Gracias',
+        YES: 'Sí',
+        NO: 'No',
+        PLEASE: 'Por favor',
+        I_LOVE_YOU: 'Te amo',
+        GOOD: 'Bien',
+        BAD: 'Mal',
+        HELP: 'Ayuda',
+        STOP: 'Detener',
+        WAIT: 'Espera',
+      };
+
+      let ws = null;
+      let intervalId = null;
+      let stream = null;
+      const history = [];
+
+      function setStatus(text, type = 'neutral') {
+        statusPill.textContent = text;
+        if (type === 'error') {
+          statusPill.style.background = 'rgba(248, 113, 113, 0.16)';
+          statusPill.style.color = '#b91c1c';
+        } else if (type === 'success') {
+          statusPill.style.background = 'rgba(52, 211, 153, 0.16)';
+          statusPill.style.color = '#047857';
+        } else {
+          statusPill.style.background = 'rgba(59, 130, 246, 0.12)';
+          statusPill.style.color = '#1d4ed8';
         }
       }
 
-      async function start() {
-        await loadBackendStatus();
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = stream;
+      function appendHistory(label) {
+        history.unshift(label);
+        if (history.length > 8) history.pop();
+        historyList.innerHTML = history.map(item => `<li class="history-item">${item}</li>`).join('');
+      }
 
-        const ws = new WebSocket('ws://localhost:8000/ws/infer');
-        ws.onmessage = (event) => {
+      function translateLabel(label) {
+        return translationMap[label] || label;
+      }
+
+      async function loadBackendStatus() {
+        try {
+          const response = await fetch(`${BACKEND_URL}/status`, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const status = await response.json();
+          backendStatus.textContent = `Backend: ${status.status} · Modelo cargado: ${status.model_loaded ? 'sí' : 'no'} · Ruta: ${status.model_path || 'no definido'}`;
+          setStatus(status.model_loaded ? 'success' : 'neutral');
+          if (!status.model_loaded) {
+            translationOutput.textContent = 'No hay modelo cargado. Coloca un ONNX/PyTorch en Backend/app/models y reinicia el backend.';
+          }
+          return status;
+        } catch (error) {
+          backendStatus.textContent = `No se pudo obtener estado del backend: ${error.message}`;
+          setStatus('error');
+          return { model_loaded: false };
+        }
+      }
+
+      function createWebSocket() {
+        ws = new WebSocket(WS_URL);
+
+        ws.onopen = () => {
+          predictionOutput.textContent = 'Conectado al backend, enviando frames...';
+        };
+
+        ws.onmessage = event => {
           const data = JSON.parse(event.data);
           if (data.type === 'prediction') {
-            const r = data.result;
-            output.textContent = `Seña: ${r.label} | Confianza: ${r.confidence}` +
-              (r.motion_score !== undefined ? ` | Movimiento: ${r.motion_score}` : '');
+            const result = data.result;
+            predictionOutput.textContent = `Etiqueta: ${result.label} · Confianza: ${result.confidence}` + (result.mode ? ` · modo: ${result.mode}` : '');
+            translationOutput.innerHTML = `<strong>Traducción:</strong> ${translateLabel(result.label)}`;
+            appendHistory(result.label);
           } else if (data.error) {
-            output.textContent = `Error: ${data.error}`;
+            predictionOutput.textContent = `Error: ${data.error}`;
           }
         };
 
-        setInterval(() => {
-          if (ws.readyState !== WebSocket.OPEN) return;
+        ws.onerror = () => setStatus('error');
+        ws.onclose = () => {
+          setStatus('error');
+          stopStream();
+        };
+      }
+
+      async function startStream() {
+        if (intervalId) return;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          video.srcObject = stream;
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          setStatus('success');
+          predictionOutput.textContent = 'Cámara activa. Conectando al backend...';
+        } catch (error) {
+          predictionOutput.textContent = `No se pudo acceder a la cámara: ${error.message}`;
+          setStatus('error');
+          return;
+        }
+
+        createWebSocket();
+        intervalId = window.setInterval(() => {
+          if (!ws || ws.readyState !== WebSocket.OPEN) return;
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const frame = canvas.toDataURL('image/jpeg', 0.7);
           ws.send(JSON.stringify({ frame }));
         }, 1000);
       }
 
-      start().catch((err) => {
-        output.textContent = `No se pudo iniciar: ${err.message}`;
+      function stopStream() {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+          stream = null;
+        }
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        setStatus('neutral');
+      }
+
+      startButton.addEventListener('click', async () => {
+        await loadBackendStatus();
+        await startStream();
       });
+
+      stopButton.addEventListener('click', stopStream);
+      loadBackendStatus();
     </script>
   </body>
 </html>
