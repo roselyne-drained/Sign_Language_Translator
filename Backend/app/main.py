@@ -27,7 +27,12 @@ if not model_path:
     default_model = Path(__file__).resolve().parent / "models" / "asl.onnx"
     model_path = str(default_model) if default_model.exists() else None
 
-recognizer = SignRecognizer(model_path=model_path)
+labels_path = os.environ.get("ASL_LABELS_PATH")
+if not labels_path:
+    default_labels = Path(__file__).resolve().parent / "models" / "labels.txt"
+    labels_path = str(default_labels) if default_labels.exists() else None
+
+recognizer = SignRecognizer(model_path=model_path, labels_path=labels_path)
 
 
 @app.get("/health")

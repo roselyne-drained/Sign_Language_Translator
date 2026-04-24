@@ -10,16 +10,23 @@ import numpy as np
 class ASLModel:
     """Carga un modelo ASL y ofrece inferencia sobre frames de webcam."""
 
-    def __init__(self, model_path: str | Path | None = None, labels: Iterable[str] | None = None) -> None:
+    def __init__(self, model_path: str | Path | None = None, labels: Iterable[str] | None = None, labels_path: str | Path | None = None) -> None:
         self.model_path = Path(model_path) if model_path else None
         self.labels = list(labels) if labels is not None else []
+        self.labels_path = Path(labels_path) if labels_path else None
         self.backend: str | None = None
         self.session = None
         self.torch_model = None
         self.is_ready = False
 
+        if self.labels_path and self.labels_path.exists():
+            self._load_labels()
+
         if self.model_path and self.model_path.exists():
             self._load_model()
+
+    def _load_labels(self) -> None:
+        self.labels = [line.strip() for line in self.labels_path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def _load_model(self) -> None:
         suffix = self.model_path.suffix.lower()

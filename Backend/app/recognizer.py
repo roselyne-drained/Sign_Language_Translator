@@ -37,11 +37,11 @@ class PredictionSmoother:
 class SignRecognizer:
     """Reconocedor ASL con fallback para detección de movimiento."""
 
-    def __init__(self, model_path: str | Path | None = None) -> None:
+    def __init__(self, model_path: str | Path | None = None, labels_path: str | Path | None = None) -> None:
         self._previous_gray: np.ndarray | None = None
         self._smoother = PredictionSmoother(size=8)
         self._last_label: str | None = None
-        self._model = ASLModel(model_path=model_path)
+        self._model = ASLModel(model_path=model_path, labels_path=labels_path)
 
     @property
     def model_loaded(self) -> bool:

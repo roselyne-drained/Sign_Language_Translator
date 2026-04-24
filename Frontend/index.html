@@ -20,6 +20,7 @@
       <canvas id="canvas" width="420" height="315" hidden></canvas>
     </div>
 
+    <p class="badge" id="backend-status">Cargando estado del backend...</p>
     <p class="badge" id="prediction">Esperando predicción...</p>
 
     <script>
@@ -27,8 +28,23 @@
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       const output = document.getElementById('prediction');
+      const statusOutput = document.getElementById('backend-status');
+
+      async function loadBackendStatus() {
+        try {
+          const response = await fetch('http://localhost:8000/status');
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const status = await response.json();
+          statusOutput.textContent = `Backend: ${status.status} | Modelo cargado: ${status.model_loaded} | Ruta: ${status.model_path || 'no definido'}`;
+        } catch (err) {
+          statusOutput.textContent = `No se pudo obtener estado del backend: ${err.message}`;
+        }
+      }
 
       async function start() {
+        await loadBackendStatus();
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         video.srcObject = stream;
 
